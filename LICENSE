@@ -19,25 +19,3 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-
----
-
-## Scope of this license
-
-This MIT license covers only the original files authored for this repository:
-`install.sh`, `restore-node.sh`, `verify.sh`, `README.md`, and the generated
-`THIRD_PARTY_NOTICES.md` / `MANIFEST.sha256`.
-
-It does NOT cover the mirrored runtime payload:
-
-* `app/out/`, `app/package.json`, the `*.patch.yml` composition files, the
-  `.html` / `.mjs` shell resources, and the branding assets are the compiled
-  output of **DSH Desktop** by DataElement / Beijing Shuju Xiangsu
-  Intelligence Technology Co., Ltd.
-  Upstream open-source project (MIT): https://github.com/dataelement/dsh-desktop
-* `app/node_modules/**` contains third-party packages, each governed by its own
-  license. See THIRD_PARTY_NOTICES.md for the complete per-package list.
-
-Notably, `@img/sharp-libvips-darwin-arm64` is licensed
-**LGPL-3.0-or-later**; redistributors must honor the LGPL's relinking and
-source-availability requirements.

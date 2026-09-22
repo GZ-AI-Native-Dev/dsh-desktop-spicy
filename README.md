@@ -58,7 +58,8 @@ Clone 下来就是那台机器的 DSH Desktop。铺回去就是那台机器。
 ├── verify.sh                     完整性 + 超限大文件 + 与 HEAD 一致性校验
 ├── THIRD_PARTY_NOTICES.md        600 个包的 license 清单（从各自 package.json 生成）
 ├── MANIFEST.sha256               全量 sha256，用于证明逐字节一致
-└── LICENSE
+├── LICENSE                       MIT（只覆盖本仓库自撰的文件）
+└── LICENSE-SCOPE.md              署名范围 + LGPL 提示 + 商标声明
 ```
 
 ---
@@ -115,7 +116,7 @@ cd dsh-desktop-spicy
 | DSH Desktop 应用壳 / `out/` bundle / `.patch.yml` / 品牌资源 | DataElement · Beijing Shuju Xiangsu Intelligence Technology Co., Ltd. | 上游开源项目 [dataelement/dsh-desktop](https://github.com/dataelement/dsh-desktop) 为 **MIT**；本仓库按 MIT 原样转载，署名归原作者 |
 | `@deepseek-ai/*` × 242 | DeepSeek | **MIT**（2 个 BSD-3-Clause） |
 | 其余依赖 × 358 | 各作者 | 绝大多数 MIT / Apache-2.0 / ISC / BSD；逐包清单见 **[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)** |
-| 本仓库的 `install.sh` / `restore-node.sh` / `verify.sh` / `README` | GZ-AI-Native-Dev | **MIT**（见 [LICENSE](LICENSE)） |
+| 本仓库的 `install.sh` / `restore-node.sh` / `verify.sh` / `README` | GZ-AI-Native-Dev | **MIT**（见 [LICENSE](LICENSE)；范围说明见 [LICENSE-SCOPE.md](LICENSE-SCOPE.md)） |
 
 ### ⚠️ 一个需要注意的 license
 
