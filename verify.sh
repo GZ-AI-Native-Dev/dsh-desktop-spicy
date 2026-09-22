@@ -7,8 +7,8 @@ set -euo pipefail
 SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SELF_DIR"
 
-EXPECTED_FILES=15312      # 15,304 mirrored payload files + 8 authored files
-EXPECTED_BYTES=199354870  # ~190 MiB, 允许 ±5% 漂移
+EXPECTED_FILES=15313      # 15,304 mirrored payload files + 9 authored files
+EXPECTED_BYTES=199357000  # ~190 MiB, 允许 ±5% 漂移
 TOLERANCE=5
 
 say() { printf '\033[36m==>\033[0m %s\n' "$*"; }
