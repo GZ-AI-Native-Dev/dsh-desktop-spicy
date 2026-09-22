@@ -1,0 +1,15 @@
+# macOS noise
+.DS_Store
+._*
+.Spotlight-V100
+.Trashes
+
+# The bundled Node runtime binary is 112 MiB, which is above GitHub's
+# 100 MiB per-file hard limit. It is intentionally NOT tracked here.
+# Restore it with ./restore-node.sh (needs npm, or falls back to nodejs.org).
+app/node_modules/node/bin/node
+
+# Local scratch
+/backups/
+*.log
+/tmp/

@@ -1,0 +1,3 @@
+provider: generic
+url: https://dshdesktop.com/updates/latest/
+updaterCacheDirName: dsh-desktop-updater

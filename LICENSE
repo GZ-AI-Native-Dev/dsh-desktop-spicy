@@ -1,0 +1,43 @@
+MIT License
+
+Copyright (c) 2026 GZ-AI-Native-Dev
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+---
+
+## Scope of this license
+
+This MIT license covers only the original files authored for this repository:
+`install.sh`, `restore-node.sh`, `verify.sh`, `README.md`, and the generated
+`THIRD_PARTY_NOTICES.md` / `MANIFEST.sha256`.
+
+It does NOT cover the mirrored runtime payload:
+
+* `app/out/`, `app/package.json`, the `*.patch.yml` composition files, the
+  `.html` / `.mjs` shell resources, and the branding assets are the compiled
+  output of **DSH Desktop** by DataElement / Beijing Shuju Xiangsu
+  Intelligence Technology Co., Ltd.
+  Upstream open-source project (MIT): https://github.com/dataelement/dsh-desktop
+* `app/node_modules/**` contains third-party packages, each governed by its own
+  license. See THIRD_PARTY_NOTICES.md for the complete per-package list.
+
+Notably, `@img/sharp-libvips-darwin-arm64` is licensed
+**LGPL-3.0-or-later**; redistributors must honor the LGPL's relinking and
+source-availability requirements.
