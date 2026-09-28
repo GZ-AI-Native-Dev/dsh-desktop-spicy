@@ -1,0 +1,25 @@
+Candidate: installed DSH Desktop 0.10.0, @deepseek-ai/dsh-client-ui-deliverables 0.1.7-rc.2.
+Input: /Applications/DSH Desktop.app/Contents/Resources/app.asar.unpacked/node_modules/@deepseek-ai/dsh-client-ui-deliverables/lib/client.js
+
+Baseline command: shasum -a 256 /Applications/DSH\ Desktop.app/Contents/Resources/app.asar.unpacked/node_modules/@deepseek-ai/dsh-client-ui-deliverables/lib/client.js
+Baseline output: 21971f469f6f7135e91d258c026f1ac70856b9e9a9acd2a9916fca5b8e7b2a22  /Applications/DSH Desktop.app/Contents/Resources/app.asar.unpacked/node_modules/@deepseek-ai/dsh-client-ui-deliverables/lib/client.js
+Baseline exit: 0
+
+Modified command: patch --batch --directory /tmp/dsh-preview-patch-fixture --strip 0 < runtime-fixes/0.10.0/deliverables-preview.patch
+Modified output: patching file client.js
+Modified exit: 0
+Modified command: shasum -a 256 /tmp/dsh-preview-patch-fixture/client.js
+Modified output: 6d1a112354bb5fb07888058f42d8ce2571d347b037824b506bd823e81dc6f2a5  /tmp/dsh-preview-patch-fixture/client.js
+Modified exit: 0
+Modified command: /Users/mac/.nvm/versions/node/v24.13.0/bin/node --check /tmp/dsh-preview-patch-fixture/client.js
+Modified output: (empty)
+Modified exit: 0
+
+Rollback command: patch --batch --reverse --directory /tmp/dsh-preview-patch-fixture --strip 0 < runtime-fixes/0.10.0/deliverables-preview.patch
+Rollback output: patching file client.js
+Rollback exit: 0
+Rollback command: shasum -a 256 /tmp/dsh-preview-patch-fixture/client.js
+Rollback output: 21971f469f6f7135e91d258c026f1ac70856b9e9a9acd2a9916fca5b8e7b2a22  /tmp/dsh-preview-patch-fixture/client.js
+Rollback exit: 0
+
+Live app: still running a user session; apply.sh guard returned exit 2 without modifying the app. UI validation remains pending until the running session is finished and the app can be restarted.

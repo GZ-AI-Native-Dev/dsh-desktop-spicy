@@ -1,0 +1,47 @@
+--- client.js
++++ client.js
+@@ -825,7 +825,7 @@
+ 		* @param props - comparison state, layout choices, retry action, and localized copy.
+ 		* @returns the comparison or its loading, unavailable, or error state.
+ 		*/
+-		function FileDiff({ state, split, wrap, retry, t }) {
++		function FileDiff({ state, split, wrap, retry, openBinary, t }) {
+ 			if (state === void 0 || state === "loading") return (0, react_jsx_runtime.jsx)("p", {
+ 				className: FileDiff_module_css_default.status,
+ 				role: "status",
+@@ -843,9 +843,13 @@
+ 					children: t("presented.retry")
+ 				})]
+ 			});
+-			if (state.kind === "binary") return (0, react_jsx_runtime.jsx)("p", {
++			if (state.kind === "binary") return (0, react_jsx_runtime.jsxs)("div", {
+ 				className: FileDiff_module_css_default.status,
+-				children: t("diff.binary")
++				children: [(0, react_jsx_runtime.jsx)("span", { children: t("diff.binary") }), openBinary && (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
++					size: "sm",
++					onClick: openBinary,
++					children: t("review.openFile")
++				})]
+ 			});
+ 			if (state.kind === "oversized") return (0, react_jsx_runtime.jsx)("p", {
+ 				className: FileDiff_module_css_default.status,
+@@ -1685,6 +1689,11 @@
+ 				useChangesDiff,
+ 				loadChangesDiff,
+ 				openReview: (index) => {
++					const file = changes.files[index];
++					if (file?.binary === true) {
++						openFile(resolveWorkspacePath(cwd, file.path));
++						return;
++					}
+ 					openChangesReview({
+ 						sessionId,
+ 						seq: changes.seq,
+@@ -2007,6 +2016,7 @@
+ 						split,
+ 						wrap,
+ 						t,
++						openBinary: () => tab.actions.openResource(fileAddressFor(sessionId, cwd, file.path)),
+ 						retry: () => {
+ 							loadChangesDiff(sessionId, seq, index);
+ 						}
