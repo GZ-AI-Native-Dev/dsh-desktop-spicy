@@ -1,0 +1,55 @@
+--- client.js
++++ client.js
+@@ -4878,6 +4878,44 @@
+ 			}, ImageBody)), "document-image: body");
+ 		}
+ 		//#endregion
++		//#region runtime-fixes/video-preview
++		const VIDEO_BODY_ID = "@deepseek-ai/dsh-client-ui-sidebar-documentpreview/video";
++		function VideoBody({ content, resourceAddress, useResource, t }) {
++			const path = useResource(resourceAddress).value?.absolutePath;
++			const url = path === void 0 ? void 0 : fileMediaUrl(document.baseURI, path)?.replace("/api/file?", "/api/file-stream?");
++			const [error, setError] = (0, react.useState)(false);
++			if (content.kind !== "renderer") return null;
++			if (url === void 0) return (0, react_jsx_runtime.jsx)("p", { role: "alert", children: t("missing") });
++			return (0, react_jsx_runtime.jsxs)("div", { children: [
++				error && (0, react_jsx_runtime.jsx)("p", { role: "alert", children: t("unsupported") }),
++				(0, react_jsx_runtime.jsx)("video", {
++					key: `${url}:${content.revision}`,
++					controls: true,
++					preload: "metadata",
++					style: { display: "block", maxWidth: "100%", maxHeight: "calc(100vh - 160px)", margin: "auto" },
++					src: url,
++					onLoadedMetadata: () => { setError(false); content.loaded(); },
++					onError: () => { setError(true); content.failed(); }
++				})
++			] });
++		}
++		function applyVideo(ctx) {
++			const id = VIDEO_BODY_ID;
++			const extensions = ["mp4", "m4v", "mov", "webm", "ogv", "ogg", "avi", "mkv"];
++			ctx.effect(() => ctx.locale.register("sidebarVideo", {
++				zh: { title: "视频", missing: "视频路径尚未就绪", unsupported: "此视频编码无法在内置播放器播放，请用系统播放器打开" },
++				en: { title: "Video", missing: "Video path is not ready", unsupported: "This video codec is not supported by the built-in player; open it in the system player" }
++			}), "document-video: dictionaries");
++			const t = ctx.locale.bind("sidebarVideo");
++			ctx.effect(() => ctx.documentPreviews.register({
++				id, extensions, binaryExtensions: extensions, priority: "builtin",
++				title: () => t("title"), loading: "renderer", wrap: false
++			}), "document-video: metadata");
++			ctx.effect(() => ctx.slots.inject("sidebar.right.tab.document", () => ctx.slots.register({
++				name: "sidebar.right.tab.document", key: id, locale: "sidebarVideo"
++			}, VideoBody)), "document-video: body");
++		}
++		//#endregion
+ 		//#region lib/types/client/pdf/LazyPdfBody.js
+ 		/** Load the PDF renderer only after a PDF body is mounted. */
+ 		const LoadedPdfBody = (0, react.lazy)(async () => ({ default: (await require.async("./client.pdf.js")).PdfBody }));
+@@ -6857,6 +6895,7 @@
+ 			apply$8(ctx);
+ 			apply$6(ctx);
+ 			apply$5(ctx);
++			applyVideo(ctx);
+ 			apply$4(ctx);
+ 			apply$2(ctx, config.office);
+ 			apply$1(ctx, config.excel);

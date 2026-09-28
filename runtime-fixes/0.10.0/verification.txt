@@ -1,25 +1,33 @@
-Candidate: installed DSH Desktop 0.10.0, @deepseek-ai/dsh-client-ui-deliverables 0.1.7-rc.2.
-Input: /Applications/DSH Desktop.app/Contents/Resources/app.asar.unpacked/node_modules/@deepseek-ai/dsh-client-ui-deliverables/lib/client.js
+Candidate: DSH Desktop 0.10.0, installed 0.10.0 plugin bundles. Live installation is pending because two DSH sessions are running.
 
-Baseline command: shasum -a 256 /Applications/DSH\ Desktop.app/Contents/Resources/app.asar.unpacked/node_modules/@deepseek-ai/dsh-client-ui-deliverables/lib/client.js
-Baseline output: 21971f469f6f7135e91d258c026f1ac70856b9e9a9acd2a9916fca5b8e7b2a22  /Applications/DSH Desktop.app/Contents/Resources/app.asar.unpacked/node_modules/@deepseek-ai/dsh-client-ui-deliverables/lib/client.js
-Baseline exit: 0
+Baseline inputs:
+  /Applications/DSH Desktop.app/Contents/Resources/app.asar.unpacked/node_modules/@deepseek-ai/dsh-client-ui-deliverables/lib/client.js
+  /Applications/DSH Desktop.app/Contents/Resources/app.asar.unpacked/node_modules/@deepseek-ai/dsh-client-ui-sidebar-documentpreview/lib/client.js
+  /Applications/DSH Desktop.app/Contents/Resources/app.asar.unpacked/node_modules/@deepseek-ai/dsh-api-session-controller/lib/index.js
+Baseline command: shasum -a 256 <each input above>
+Baseline literal outputs (in input order):
+  21971f469f6f7135e91d258c026f1ac70856b9e9a9acd2a9916fca5b8e7b2a22
+  d8d2b78c89febaef7f1188c7435d01e70693d73494b8f288f09c5c6dedbd7cc5
+  e82d226f27f97acf9123e986e5991b20bb560a41601f0ffb46fb0fa0e57278fb
+Baseline exit status: 0 for each.
 
-Modified command: patch --batch --directory /tmp/dsh-preview-patch-fixture --strip 0 < runtime-fixes/0.10.0/deliverables-preview.patch
-Modified output: patching file client.js
-Modified exit: 0
-Modified command: shasum -a 256 /tmp/dsh-preview-patch-fixture/client.js
-Modified output: 6d1a112354bb5fb07888058f42d8ce2571d347b037824b506bd823e81dc6f2a5  /tmp/dsh-preview-patch-fixture/client.js
-Modified exit: 0
-Modified command: /Users/mac/.nvm/versions/node/v24.13.0/bin/node --check /tmp/dsh-preview-patch-fixture/client.js
-Modified output: (empty)
-Modified exit: 0
+Modified commands:
+  patch --batch --directory <temporary-copy-directory> --strip 0 < runtime-fixes/0.10.0/deliverables-preview.patch
+  patch --batch --directory <temporary-copy-directory> --strip 0 < runtime-fixes/0.10.0/documentpreview.patch
+  patch --batch --directory <temporary-copy-directory> --strip 0 < runtime-fixes/0.10.0/session-controller.patch
+Modified literal output: patching file client.js; patching file client.js; patching file index.js
+Modified exit status: 0 for each.
+Modified hashes in order:
+  6d1a112354bb5fb07888058f42d8ce2571d347b037824b506bd823e81dc6f2a5
+  ce8672d7ee378d9b44c20cffd2dccb1c4fda64dea9a95a18fbfcb43987f13347
+  5d1016513c7fbbf93e423ee7b3690b2f1532b01ab6db17348b8f1e63d84114d0
+Modified hash and Node --check exit status: 0 for each.
 
-Rollback command: patch --batch --reverse --directory /tmp/dsh-preview-patch-fixture --strip 0 < runtime-fixes/0.10.0/deliverables-preview.patch
-Rollback output: patching file client.js
-Rollback exit: 0
-Rollback command: shasum -a 256 /tmp/dsh-preview-patch-fixture/client.js
-Rollback output: 21971f469f6f7135e91d258c026f1ac70856b9e9a9acd2a9916fca5b8e7b2a22  /tmp/dsh-preview-patch-fixture/client.js
-Rollback exit: 0
+Route unit command: /Applications/DSH\ Desktop.app/Contents/Resources/app.asar.unpacked/node_modules/node/bin/node --test runtime-fixes/0.10.0/test-media-stream.cjs
+Route unit literal summary: tests 5; pass 5; fail 0; exit status 0. Checked full GET 200, byte range 206, suffix range 206, HEAD 200, invalid range 416, relative path 400, missing 404, denied 403, directory 403, empty 200.
 
-Live app: still running a user session; apply.sh guard returned exit 2 without modifying the app. UI validation remains pending until the running session is finished and the app can be restarted.
+Rollback commands: patch --batch --reverse --directory <temporary-copy-directory> --strip 0 < each corresponding patch file
+Rollback literal output: patching file client.js; patching file client.js; patching file index.js
+Rollback exit status: 0 for each; restored hashes match baseline exactly.
+
+Live behavior: previously confirmed PNG whole-file viewer works. Newly added video playback, relative paths for file types, and full-app installation are not yet live-verified. Existing DSH sessions remain running; no app restart performed.
