@@ -1,4 +1,14 @@
-Candidate: DSH Desktop 0.10.0, installed 0.10.0 plugin bundles. Live installation is pending because two DSH sessions are running.
+Candidate: DSH Desktop 0.10.0, installed 0.10.0 plugin bundles. Live installation and UI acceptance are recorded separately after the installer run.
+
+Model profile baseline command: shasum -a 256 /Users/mac/Library/Application\ Support/dsh-desktop/harness/profiles/web/cordis.patch.yml
+Model profile baseline literal output: f4d655e016a2965d40c315e7333d618f1ffe2fb83a0dcc744d1aad4e540d416f
+Model profile modified command: patch --batch --directory <temporary-profile-copy-directory> --strip 0 < runtime-fixes/0.10.0/model-context.patch
+Model profile modified literal output: patching file cordis.patch.yml
+Model profile modified hash: 446a4a2530648281c5d43494bfaaf83445e7e52166fdfbc04d69100f4986abbb
+Model profile rollback command: patch --batch --reverse --directory <temporary-profile-copy-directory> --strip 0 < runtime-fixes/0.10.0/model-context.patch
+Model profile rollback literal output: patching file cordis.patch.yml
+Model profile rollback hash: f4d655e016a2965d40c315e7333d618f1ffe2fb83a0dcc744d1aad4e540d416f
+All model profile commands exit status: 0.
 
 Baseline inputs:
   /Applications/DSH Desktop.app/Contents/Resources/app.asar.unpacked/node_modules/@deepseek-ai/dsh-client-ui-deliverables/lib/client.js
