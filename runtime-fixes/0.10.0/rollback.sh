@@ -10,6 +10,7 @@ base=(21971f469f6f7135e91d258c026f1ac70856b9e9a9acd2a9916fca5b8e7b2a22 d8d2b78c8
 profile="$HOME/Library/Application Support/dsh-desktop/harness/profiles/web/cordis.patch.yml"
 profile_backup="$(dirname "$backup")/cordis.patch.yml"
 profile_base=f4d655e016a2965d40c315e7333d618f1ffe2fb83a0dcc744d1aad4e540d416f
+root=$(cd "$(dirname "$0")" && pwd)
 if pgrep -f "^${app}/Contents/MacOS/DSH Desktop$" >/dev/null; then
   echo 'Quit DSH Desktop before rollback.' >&2
   exit 2
@@ -18,12 +19,13 @@ for i in "${!packages[@]}"; do
   [[ $(shasum -a 256 "$backup/$prefix/${packages[i]}/lib/${files[i]}" | cut -d ' ' -f 1) == "${base[i]}" ]]
 done
 [[ $(shasum -a 256 "$profile_backup" | cut -d ' ' -f 1) == "$profile_base" ]]
+patch --dry-run --reverse --directory "$(dirname "$profile")" --strip 0 < "$root/model-context.patch" >/dev/null
 codesign --verify --deep --strict "$backup"
 ditto "$backup" "$app"
-cp -p "$profile_backup" "$profile"
+patch --batch --reverse --directory "$(dirname "$profile")" --strip 0 < "$root/model-context.patch"
 for i in "${!packages[@]}"; do
   [[ $(shasum -a 256 "$app/$prefix/${packages[i]}/lib/${files[i]}" | cut -d ' ' -f 1) == "${base[i]}" ]]
 done
-[[ $(shasum -a 256 "$profile" | cut -d ' ' -f 1) == "$profile_base" ]]
+! grep -A 1 '^          - id: qwen3.8-max$' "$profile" | grep -q 'contextWindow: 1000000'
 codesign --verify --deep --strict "$app"
 echo "restored=$app"

@@ -10,3 +10,7 @@ The tracked repository is a 0.9.0 snapshot. This overlay targets the exact insta
 `apply.sh` requires the app to be closed, verifies the 0.10.0 version, exact three plugin hashes, and exact model-profile hash; it backs up the full original signed app and profile, patches only three plugin files and the model field, checks syntax/hashes, then ad-hoc signs and verifies the bundle. Ad-hoc signing replaces the Developer ID seal; `rollback.sh` restores the full original signed backup and profile. Keep the backup until accepted.
 
 Run `./apply.sh` after all running DSH sessions finish. Reopen DSH and verify a relative workspace image, document, HTML file, and video plus a web URL and text diff. The updater may replace this overlay; recheck the version and plugin hashes before any future reapplication.
+
+Current local state: the model-capacity field is installed and live-verified at 1M. macOS App Management denied re-signing the patched app bundle, so the three file/video plugin patches were restored to their signed baseline and remain pending. The full-app installer should not be retried until that OS permission is available. Rollback reverses only the model field, retaining other profile edits made after installation.
+
+For the currently installed model-only fix, run `./rollback-model-context.sh` to remove that one field without touching the app bundle or other model settings.
