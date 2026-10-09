@@ -1,5 +1,15 @@
 # dsh-desktop-spicy
 
+## 当前自定义更新（DSH Desktop 0.10.0）
+
+最新补丁与验证记录位于 [`runtime-fixes/0.10.0/`](runtime-fixes/0.10.0/README.md)：工作区相对路径与二进制文件预览、视频播放器与范围读取，以及 Qwen3.8 Max 的 1M 上下文配置。
+
+**发布状态和安装状态分开记录：**补丁代码已纳入本仓库；本机 1M 上下文配置已验证生效，文件/视频预览补丁仍待安装。详情、适用版本、校验哈希与回滚命令见补丁目录。本次 GitHub 同步不安装补丁、不重启应用，也不包含账号凭据、聊天记录或用户配置整包。
+
+根目录继续保留下面的 **0.9.0 运行时基线**，不是当前 0.10.0 安装版的全量镜像。对 0.10.0 应使用独立补丁流程；不要用根目录 `install.sh` 替换 0.10.0 的 Resources。
+
+---
+
 **DSH Desktop 0.9.0 的完整运行时镜像（turnkey 快照）。**
 
 把一台能跑的 DSH Desktop 里 `Contents/Resources/` 的每一个字节都摊开放在这里 —— **15,304 个镜像文件 / ~188 MiB**（仓库合计 15,312 文件 / ~190 MiB），包含打包好的主进程/预加载 bundle（`app/out/`）、600 个依赖包（`app/node_modules/`）、Cordis 插件装配用的 `.patch.yml`、启动页/安全模式/插件恢复页面和品牌资源。
@@ -151,6 +161,8 @@ cd dsh-desktop-spicy
 ---
 
 # English
+
+**Current custom updates:** the [0.10.0 overlay](runtime-fixes/0.10.0/README.md) contains workspace/binary preview, video streaming, and the Qwen3.8 Max 1M context patch. The model-only fix is live-verified; the file/video overlay remains pending installation. The root payload is still the original 0.9.0 baseline, not a full 0.10.0 mirror. Use the version-specific overlay for 0.10.0, not the root `install.sh`. Publishing these files does not install patches or include credentials, sessions, or complete user profiles.
 
 **A complete, turnkey mirror of the DSH Desktop 0.9.0 runtime plane.**
 
