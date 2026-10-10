@@ -10,6 +10,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 if ($Execute -and $TestFixture) { throw 'Choose either -Execute or -TestFixture, not both.' }
 function Get-Sha256([string]$Path) { return (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToLowerInvariant() }
+function Resolve-NodeExecutable([string]$Name) { return (Get-Command -Name $Name -CommandType Application -ErrorAction Stop | Select-Object -First 1).Source }
 function Assert-Hash([string]$Path, [string]$Expected) {
     if (!(Test-Path -LiteralPath $Path -PathType Leaf) -or (Get-Sha256 $Path) -ne $Expected) { throw "Hash check failed: $Path" }
 }
@@ -39,7 +40,7 @@ function Replace-Asar([string]$Source, [string]$Target, [string]$Expected) {
     try {
         [IO.File]::Copy($Source, $stage, $false)
         Assert-Hash $stage $Expected
-        [IO.File]::Replace($stage, $Target, $null, $true)
+        [IO.File]::Replace($stage, $Target, [NullString]::Value, $true)
         Assert-Hash $Target $Expected
     } finally {
         if (Test-Path -LiteralPath $stage -PathType Leaf) { Remove-Item -LiteralPath $stage -Force }
@@ -59,7 +60,7 @@ Assert-Hash $backupExe $record.baselineExeSha256
 Assert-Hash $candidate $record.candidateAsarSha256
 Assert-Hash (Join-Path $payload 'manifest.json') $record.manifestSha256
 Assert-Hash $tool $record.patchToolSha256
-$node = (Get-Command -Name $NodePath -CommandType Application -ErrorAction Stop).Source
+$node = Resolve-NodeExecutable $NodePath
 # Always pass --exe: integrity-enabled or mismatched future builds stop here.
 $verify = Invoke-PatchTool $node $tool @('verify', '--asar', $original, '--candidate', $candidate, '--dir', $payload, '--exe', $backupExe)
 

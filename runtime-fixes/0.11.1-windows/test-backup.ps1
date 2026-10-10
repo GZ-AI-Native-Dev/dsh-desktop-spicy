@@ -44,7 +44,7 @@ function Run-Test([string]$Name, [scriptblock]$Body) {
 $applyPath = Join-Path $PSScriptRoot 'apply-windows.ps1'
 $rollbackPath = Join-Path $PSScriptRoot 'rollback-windows.ps1'
 . (Get-HelperDefinitions $applyPath @(
-    'Get-FullPath', 'Get-Sha256', 'Assert-Hash', 'Assert-BackupLocation',
+    'Get-FullPath', 'Resolve-NodeExecutable', 'Get-Sha256', 'Assert-Hash', 'Assert-BackupLocation',
     'Get-TreeSnapshot', 'Get-TreeFiles', 'Get-TreeDigest', 'Copy-Profile', 'Write-Json', 'Replace-Asar'
 ))
 
@@ -87,6 +87,27 @@ try {
     }
     $snapshot = Get-TreeSnapshot $source
     $before = Get-TreeDigest $source $snapshot
+
+    Run-Test 'both scripts choose one Node executable without merging multiple spaced paths' {
+        foreach ($scriptPath in @($applyPath, $rollbackPath)) {
+            . (Get-HelperDefinitions $scriptPath @('Resolve-NodeExecutable'))
+            $first = 'C:\Node Runtime One\node.exe'
+            $second = 'C:\Node Runtime Two\node.exe'
+            function Get-Command {
+                param([string]$Name, [string]$CommandType, [string]$ErrorAction)
+                Assert-Equal $CommandType 'Application' 'Node lookup remains application-only'
+                Assert-Equal $ErrorAction 'Stop' 'Node lookup errors are terminating'
+                if ($Name -eq 'missing-node-fixture') { throw 'Node lookup fixture failure' }
+                Assert-Equal $Name 'node-fixture' 'caller Node name is preserved'
+                return @([pscustomobject]@{ Source = $first }, [pscustomobject]@{ Source = $second })
+            }
+            $selected = @(Resolve-NodeExecutable 'node-fixture')
+            Assert-Equal $selected.Count 1 'exactly one path is returned'
+            Assert-Equal $selected[0] $first 'first application path remains a single string with spaces'
+            Expect-Failure { Resolve-NodeExecutable 'missing-node-fixture' } 'Node lookup fixture failure'
+            Assert-True ((Get-Content -LiteralPath $scriptPath -Raw) -match '\$node\s*=\s*Resolve-NodeExecutable\s+\$NodePath') 'main uses the tested helper without executing main'
+        }
+    }
 
     Run-Test 'snapshot records junction/symlink metadata without reading or walking targets' {
         Assert-Equal @($snapshot.files).Count 2 'only ordinary profile files are enumerated'
