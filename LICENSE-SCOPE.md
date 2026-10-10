@@ -11,6 +11,13 @@ original files authored for it**:
 | `README.md` | documentation |
 | `THIRD_PARTY_NOTICES.md` | generated per-package license list |
 | `MANIFEST.sha256` | generated sha256 integrity manifest |
+| `runtime-fixes/0.11.1-windows/*.ps1`, `patch-asar.cjs`, `test-*.cjs`, `manifest.json`, `README.md` | Windows overlay tooling, tests, integrity metadata and documentation |
+| `.github/workflows/windows-preview.yml` | isolated Windows/Linux overlay tests |
+
+The three JavaScript bundles in `runtime-fixes/0.11.1-windows/` and their
+corresponding `.patch` files are derived from the MIT-licensed upstream
+`@deepseek-ai` packages. Their upstream ownership and license notices remain
+applicable; they are not claimed as wholly original works by this repository.
 
 ## What it does NOT cover
 

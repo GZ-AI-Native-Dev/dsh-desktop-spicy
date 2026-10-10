@@ -1,5 +1,11 @@
 # dsh-desktop-spicy
 
+## Windows 0.11.1 适配
+
+[`runtime-fixes/0.11.1-windows/`](runtime-fixes/0.11.1-windows/README.md) 提供针对 **Windows x64 官方 0.11.1 / Harness 0.2.0-rc.2** 的独立预览补丁：二进制文件打开完整预览、本地盘视频播放与拖动进度、认证的有界 HTTP Range 读取。
+
+仅替换三个已校验的 JS entry，保留其余 ASAR 内容、签名 EXE 和账号/模型配置；提供 PowerShell 安装、备份、回滚及跨平台自动测试。安装前阅读该目录说明，版本或哈希不匹配时脚本会停止。**不要在 Windows 使用根目录 macOS `install.sh`，也不要用 0.10.0 的文件覆盖 0.11.1。**
+
 ## 当前自定义更新（DSH Desktop 0.10.0）
 
 最新补丁与验证记录位于 [`runtime-fixes/0.10.0/`](runtime-fixes/0.10.0/README.md)：工作区相对路径与二进制文件预览、视频播放器与范围读取，以及 Qwen3.8 Max 的 1M 上下文配置。

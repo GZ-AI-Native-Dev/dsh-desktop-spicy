@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "platform": "win32-x64",
+  "desktopVersion": "0.11.1",
+  "harnessVersion": "0.2.0-rc.2",
+  "baselineAsarSha256": "c6ad1d6a90b2f52154be97210c0e32cbbedc471822d3fe2f3f74b21c619b1007",
+  "baselineExeSha256": "1cc3999dc6730e5e846631e9ae122bbcada1acf4b853677322bf30851dbcd419",
+  "officialInstallerSha256": "420d48566a9cefc829b5e6a90e7fabe4a7a9d336fec56e077efea5d967380c62",
+  "files": [
+    {
+      "file": "deliverables.js",
+      "path": "node_modules/@deepseek-ai/dsh-client-ui-deliverables/lib/client.js",
+      "baselineSha256": "21e855fe246ae1323c6f267449df2a0a45ae18425e3103184f2e8303ad6de478",
+      "modifiedSha256": "5fdff3a491ca55101041df0c3b023bbe6673f9ff9c9242bccf4c3e17a7c67bc5"
+    },
+    {
+      "file": "documentpreview.js",
+      "path": "node_modules/@deepseek-ai/dsh-client-ui-sidebar-documentpreview/lib/client.js",
+      "baselineSha256": "d8d2b78c89febaef7f1188c7435d01e70693d73494b8f288f09c5c6dedbd7cc5",
+      "modifiedSha256": "27deb5c881da68689e6b2f04d728026c027715010c137f50111eca0c8050a8b1"
+    },
+    {
+      "file": "session-controller.js",
+      "path": "node_modules/@deepseek-ai/dsh-api-session-controller/lib/index.js",
+      "baselineSha256": "98d8bc34d0768cea12b322219ad86bb6937594bfd9a77df6d7e0fe58dd27f273",
+      "modifiedSha256": "1fafb12b8d935fa764fddfecff5157fbc0c1f0fb5d70972596beae313bc40fbd"
+    }
+  ]
+}

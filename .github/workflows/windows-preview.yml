@@ -1,0 +1,90 @@
+name: Windows 0.11.1 preview compatibility
+
+on:
+  push:
+    paths:
+      - runtime-fixes/0.11.1-windows/**
+      - .github/workflows/windows-preview.yml
+  pull_request:
+    paths:
+      - runtime-fixes/0.11.1-windows/**
+      - .github/workflows/windows-preview.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-preview-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  compatibility:
+    name: Node 24 / ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: bash
+        working-directory: runtime-fixes/0.11.1-windows
+    steps:
+      - name: Check out only the Windows overlay
+        # v7.0.1; sparse checkout automatically uses the blob:none fetch filter.
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /runtime-fixes/0.11.1-windows/
+
+      - name: Set up Node.js 24
+        # v7.1.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: '24'
+
+      - name: Check JavaScript syntax
+        run: |
+          node --check deliverables.js
+          node --check documentpreview.js
+          node --check session-controller.js
+          node --check patch-asar.cjs
+          node --check test-media-stream.cjs
+          node --check test-preview.cjs
+          node --check test-asar.cjs
+
+      - name: Check PowerShell installer and rollback syntax
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $scripts = @(Get-ChildItem -LiteralPath . -Filter '*.ps1' -File)
+          if ($scripts.Count -lt 2) {
+            throw 'Expected the installer and rollback PowerShell scripts.'
+          }
+          foreach ($script in $scripts) {
+            $tokens = $null
+            $parseErrors = $null
+            [void][System.Management.Automation.Language.Parser]::ParseFile(
+              $script.FullName, [ref]$tokens, [ref]$parseErrors
+            )
+            if ($parseErrors.Count -gt 0) {
+              $parseErrors | ForEach-Object { Write-Error $_.ToString() }
+              throw "PowerShell syntax failed: $($script.Name)"
+            }
+            Write-Output "PowerShell syntax OK: $($script.Name)"
+          }
+
+      - name: Verify authenticated media streaming and Windows paths
+        run: node --test test-media-stream.cjs
+
+      - name: Verify document and preview compatibility
+        run: node test-preview.cjs
+
+      - name: Verify ASAR patch integrity and rollback
+        run: node --test test-asar.cjs
