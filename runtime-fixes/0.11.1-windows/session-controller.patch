@@ -1,0 +1,139 @@
+--- index.js
++++ index.js
+@@ -2572,6 +2572,123 @@
+ * File-display contribution. The connection service supplies authentication;
+ * `ctx.fs` supplies the execution world's paths, reads, and access policy.
+ */
++/** Accept fully-qualified execution-world paths without depending on the harness host OS. */
++function isMediaStreamAbsolutePath(path) {
++	if (path.startsWith("/")) return true;
++	if (/^[A-Za-z]:[\\/]/.test(path)) return true;
++	if (/^\\\\\?\\/.test(path)) return /^\\\\\?\\(?:[A-Za-z]:\\|UNC\\[^\\]+\\[^\\]+(?:\\|$))/i.test(path);
++	return /^\\\\(?![.?](?:[\\/]|$))[^\\/]+[\\/][^\\/]+(?:[\\/]|$)/.test(path);
++}
++/** Stream authorized media in bounded chunks; all identity and policy checks stay in ctx.fs. */
++async function serveMediaStream(request, fs) {
++	const fail = (status, text, headers = {}) => new Response(request.method === "HEAD" ? null : text, {
++		status,
++		headers: { ...BASE_HEADERS, ...headers }
++	});
++	const path = new URL(request.url).searchParams.get("path");
++	if (!path || path.includes("\0") || !isMediaStreamAbsolutePath(path)) return fail(400, "absolute path required");
++	try {
++		if (request.signal.aborted) return fail(499, "FS_ABORTED");
++		const target = await fs.resolve(path, { signal: request.signal });
++		if (request.signal.aborted) return fail(499, "FS_ABORTED");
++		const info = await fs.stat(target, request.signal);
++		if (request.signal.aborted) return fail(499, "FS_ABORTED");
++		if (info === void 0) return fail(404, "not found");
++		if (info.type !== "file") return fail(403, "not a regular file");
++		const size = info.size;
++		if (!Number.isSafeInteger(size) || size < 0) return fail(500, "invalid file size");
++		const range = request.headers.get("range");
++		let start = 0;
++		let end = size - 1;
++		if (range !== null) {
++			const match = /^bytes=(\d*)-(\d*)$/i.exec(range);
++			const invalid = () => fail(416, "invalid range", { "Accept-Ranges": "bytes", "Content-Range": `bytes */${size}` });
++			if (!match || match[1] === "" && match[2] === "") return invalid();
++			if (match[1] === "") {
++				const suffix = Number(match[2]);
++				if (!Number.isSafeInteger(suffix) || suffix < 1 || size === 0) return invalid();
++				start = Math.max(0, size - suffix);
++			} else {
++				start = Number(match[1]);
++				if (!Number.isSafeInteger(start) || start >= size) return invalid();
++				if (match[2] !== "") {
++					const requestedEnd = Number(match[2]);
++					if (!Number.isSafeInteger(requestedEnd) || requestedEnd < start) return invalid();
++					end = Math.min(requestedEnd, size - 1);
++				}
++			}
++		}
++		const headers = {
++			...BASE_HEADERS,
++			"Content-Type": mime.lookup(target.displayPath) || "application/octet-stream",
++			"Accept-Ranges": "bytes",
++			"Content-Length": String(end - start + 1),
++			...(range !== null ? { "Content-Range": `bytes ${start}-${end}/${size}` } : {})
++		};
++		if (request.method === "HEAD" || size === 0) return new Response(null, { status: range !== null ? 206 : 200, headers });
++		let offset = start;
++		let finished = false;
++		let bodyController;
++		const readAbort = new AbortController();
++		const cleanup = () => request.signal.removeEventListener("abort", abort);
++		const abort = () => {
++			if (finished) return;
++			finished = true;
++			const reason = request.signal.reason ?? new Error("media request aborted");
++			readAbort.abort(reason);
++			cleanup();
++			bodyController.error(reason);
++		};
++		const stream = new ReadableStream({
++			start(controller) {
++				bodyController = controller;
++				request.signal.addEventListener("abort", abort, { once: true });
++				if (request.signal.aborted) abort();
++			},
++			async pull(controller) {
++				if (finished) return;
++				try {
++					const length = Math.min(1024 * 1024, end - offset + 1);
++					const bytes = await fs.readByteRange(target, { offset, length }, readAbort.signal);
++					if (finished) return;
++					if (!(bytes instanceof Uint8Array) || bytes.byteLength !== length) throw new Error("media changed during read");
++					controller.enqueue(bytes);
++					offset += length;
++					if (offset > end) {
++						finished = true;
++						cleanup();
++						controller.close();
++					}
++				} catch (error) {
++					if (finished) return;
++					finished = true;
++					cleanup();
++					readAbort.abort(error);
++					controller.error(error);
++				}
++			},
++			cancel(reason) {
++				if (finished) return;
++				finished = true;
++				cleanup();
++				readAbort.abort(reason);
++			}
++		}, { highWaterMark: 0 });
++		return new Response(stream, { status: range !== null ? 206 : 200, headers });
++	} catch (error) {
++		if (request.signal.aborted) return fail(499, "FS_ABORTED");
++		if (error?.code === "EACCES" || error?.code === "EPERM") return fail(403, error.code);
++		if (!(error instanceof FsError)) throw error;
++		return fail({
++			FS_NOT_FOUND: 404,
++			FS_NOT_REGULAR_FILE: 403,
++			FS_PERMISSION_DENIED: 403,
++			FS_SANDBOX_DENIED: 403,
++			FS_TOO_LARGE: 413,
++			FS_ABORTED: 499
++		}[error.code] ?? 500, error.code);
++	}
++}
+ const SessionMediaReferences = {
+ 	inject: [
+ 		"connection",
+@@ -2586,6 +2703,12 @@
+ 			requestBody: "buffered",
+ 			fetch: (request) => serveFile(request, ctx.fs, maxBytes)
+ 		}), "session-controller: /api/file");
++		ctx.effect(() => ctx.connection.fetch.register({
++			path: "/api/file-stream",
++			methods: ["GET", "HEAD"],
++			requestBody: "buffered",
++			fetch: (request) => serveMediaStream(request, ctx.fs)
++		}), "session-controller: /api/file-stream");
+ 	}
+ };
+ const FILE_HOST_PATH = "/api/session/fileHostPath";

@@ -1,0 +1,284 @@
+diff --git a/node_modules/@deepseek-ai/dsh-client-ui-deliverables/lib/client.js b/node_modules/@deepseek-ai/dsh-client-ui-deliverables/lib/client.js
+--- a/node_modules/@deepseek-ai/dsh-client-ui-deliverables/lib/client.js
++++ b/node_modules/@deepseek-ai/dsh-client-ui-deliverables/lib/client.js
+@@ -825,7 +825,7 @@
+ 		* @param props - comparison state, layout choices, retry action, and localized copy.
+ 		* @returns the comparison or its loading, unavailable, or error state.
+ 		*/
+-		function FileDiff({ state, split, wrap, retry, t }) {
++		function FileDiff({ state, split, wrap, retry, openBinary, t }) {
+ 			if (state === void 0 || state === "loading") return (0, react_jsx_runtime.jsx)("p", {
+ 				className: FileDiff_module_css_default.status,
+ 				role: "status",
+@@ -843,9 +843,14 @@
+ 					children: t("presented.retry")
+ 				})]
+ 			});
+-			if (state.kind === "binary") return (0, react_jsx_runtime.jsx)("p", {
++			if (state.kind === "binary") return (0, react_jsx_runtime.jsxs)("div", {
+ 				className: FileDiff_module_css_default.status,
+-				children: t("diff.binary")
++				children: [(0, react_jsx_runtime.jsx)("span", { children: t("diff.binary") }), openBinary && (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
++					size: "sm",
++					"data-review-open-binary": true,
++					onClick: openBinary,
++					children: t("review.openFile")
++				})]
+ 			});
+ 			if (state.kind === "oversized") return (0, react_jsx_runtime.jsx)("p", {
+ 				className: FileDiff_module_css_default.status,
+@@ -1687,7 +1692,7 @@
+ 		* @param props - matched announcement and files, workspace opener, and localized copy.
+ 		* @returns the closing turn's file rows.
+ 		*/
+-		function Deliverables({ matched, openFile, t, sessionId, useSessions, openPresented, openChangesReview, usePresentedOpen, usePresentedHost, useChangesDiff, loadChangesDiff, useChangesSummary, reloadPresentedHost, loadChangesSummary, useShowCodeDiff, renderSlot }) {
++		function Deliverables({ matched, openFile, openChangedFile, t, sessionId, useSessions, openPresented, openChangesReview, usePresentedOpen, usePresentedHost, useChangesDiff, loadChangesDiff, useChangesSummary, reloadPresentedHost, loadChangesSummary, useShowCodeDiff, renderSlot }) {
+ 			const [expanded, setExpanded] = (0, react.useState)(false);
+ 			const showCodeDiff = useShowCodeDiff((value) => value);
+ 			const cwd = useSessions((state) => state.byId[sessionId]?.cwd);
+@@ -1720,6 +1725,11 @@
+ 				useChangesDiff,
+ 				loadChangesDiff,
+ 				openReview: (index) => {
++					const file = changes.files[index];
++					if (file?.binary === true) {
++						openChangedFile(sessionId, cwd, file.path);
++						return;
++					}
+ 					openChangesReview({
+ 						sessionId,
+ 						seq: changes.seq,
+@@ -2042,6 +2052,7 @@
+ 						split,
+ 						wrap,
+ 						t,
++						openBinary: () => tab.actions.openResource(fileAddressFor(sessionId, cwd, file.path)),
+ 						retry: () => {
+ 							loadChangesDiff(sessionId, seq, index);
+ 						}
+@@ -2343,6 +2354,10 @@
+ 					loadChangesSummary: (sessionId, seq) => summaries.load(sessionId, seq),
+ 					openPresented: (sessionId, seq, index, action, application) => opener.open(sessionId, seq, index, action, application),
+ 					openChanged: (sessionId, seq, index, action, application) => opener.openChanged(sessionId, seq, index, action, application),
++					// Construct a ResourceAddress, never pass a Windows drive path to a URL opener.
++					openChangedFile: (sessionId, cwd, path) => {
++						ctx.sidebarRight.openResource(fileAddressFor(sessionId, cwd, path));
++					},
+ 					openChangesReview: (coordinates, index) => {
+ 						ctx.sidebarRight.openResource(changesReviewAddress(coordinates), { params: { index } });
+ 					}
+diff --git a/node_modules/@deepseek-ai/dsh-client-ui-sidebar-documentpreview/lib/client.js b/node_modules/@deepseek-ai/dsh-client-ui-sidebar-documentpreview/lib/client.js
+--- a/node_modules/@deepseek-ai/dsh-client-ui-sidebar-documentpreview/lib/client.js
++++ b/node_modules/@deepseek-ai/dsh-client-ui-sidebar-documentpreview/lib/client.js
+@@ -4878,6 +4878,63 @@
+ 			}, ImageBody)), "document-image: body");
+ 		}
+ 		//#endregion
++		//#region runtime-fixes/video-preview-windows
++		const VIDEO_BODY_ID = "@deepseek-ai/dsh-client-ui-sidebar-documentpreview/video";
++		const VIDEO_EXTENSIONS = ["mp4", "m4v", "mov", "webm", "ogv", "ogg", "avi", "mkv"];
++		/** Build an authenticated same-origin stream URL from a resolved ResourceAddress path. */
++		function videoMediaUrl(base, absolutePath) {
++			if (typeof absolutePath !== "string") return void 0;
++			const media = fileMediaUrl(base, absolutePath);
++			if (media === void 0) return void 0;
++			const url = new URL(media);
++			url.pathname = url.pathname.replace(/\/file$/, "/file-stream");
++			return url.href;
++		}
++		/** Resolve all native-path spellings through the resource hook before creating media URLs. */
++		function VideoBody({ content, resourceAddress, useResource, scrollportRef, t }) {
++			const resource = useResource(resourceAddress);
++			const url = resource.value?.absolutePath === void 0 ? void 0 : videoMediaUrl(document.baseURI, resource.value.absolutePath);
++			if (content.kind !== "renderer") return null;
++			if (url === void 0) return (0, react_jsx_runtime.jsx)("p", { role: "alert", children: t("missing") });
++			return (0, react_jsx_runtime.jsx)(LoadedVideo, {
++				content, url, version: resource.value?.version, scrollportRef, t
++			}, `${url}:${content.revision}`);
++		}
++		/** A separate keyed body resets codec-error state when the file or revision changes. */
++		function LoadedVideo({ content, url, version, scrollportRef, t }) {
++			const [error, setError] = (0, react.useState)(false);
++			return (0, react_jsx_runtime.jsxs)("div", {
++				ref: scrollportRef,
++				"data-video-preview": true,
++				style: { display: "flex", flexDirection: "column", width: "100%", minHeight: "100%", whiteSpace: "normal" },
++				children: [
++					error && (0, react_jsx_runtime.jsx)("p", { role: "alert", "data-video-error": true, children: t("unsupported") }),
++					(0, react_jsx_runtime.jsx)("video", {
++						controls: true,
++						preload: "metadata",
++						style: { display: "block", maxWidth: "100%", maxHeight: "calc(100vh - 160px)", margin: "auto" },
++						src: url,
++						onLoadedMetadata: () => { setError(false); content.loaded(version); },
++						onError: () => { setError(true); content.failed(); }
++					})
++				]
++			});
++		}
++		function applyVideo(ctx) {
++			ctx.effect(() => ctx.locale.register("sidebarVideo", {
++				zh: { title: "视频", missing: "视频路径尚未就绪", unsupported: "此视频编码不受内置播放器支持，请用上方系统播放器按钮打开" },
++				en: { title: "Video", missing: "Video path is not ready", unsupported: "This video codec is not supported by the built-in player; use the system player button above" }
++			}), "document-video: dictionaries");
++			const t = ctx.locale.bind("sidebarVideo");
++			ctx.effect(() => ctx.documentPreviews.register({
++				id: VIDEO_BODY_ID, extensions: VIDEO_EXTENSIONS, binaryExtensions: VIDEO_EXTENSIONS,
++				priority: "builtin", title: () => t("title"), loading: "renderer", wrap: false
++			}), "document-video: metadata");
++			ctx.effect(() => ctx.slots.inject("sidebar.right.tab.document", () => ctx.slots.register({
++				name: "sidebar.right.tab.document", key: VIDEO_BODY_ID, locale: "sidebarVideo"
++			}, VideoBody)), "document-video: body");
++		}
++		//#endregion
+ 		//#region lib/types/client/pdf/LazyPdfBody.js
+ 		/** Load the PDF renderer only after a PDF body is mounted. */
+ 		const LoadedPdfBody = (0, react.lazy)(async () => ({ default: (await require.async("./client.pdf.js")).PdfBody }));
+@@ -6857,6 +6914,7 @@
+ 			apply$8(ctx);
+ 			apply$6(ctx);
+ 			apply$5(ctx);
++			applyVideo(ctx);
+ 			apply$4(ctx);
+ 			apply$2(ctx, config.office);
+ 			apply$1(ctx, config.excel);
+diff --git a/node_modules/@deepseek-ai/dsh-api-session-controller/lib/index.js b/node_modules/@deepseek-ai/dsh-api-session-controller/lib/index.js
+--- a/node_modules/@deepseek-ai/dsh-api-session-controller/lib/index.js
++++ b/node_modules/@deepseek-ai/dsh-api-session-controller/lib/index.js
+@@ -2572,6 +2572,123 @@
+ * File-display contribution. The connection service supplies authentication;
+ * `ctx.fs` supplies the execution world's paths, reads, and access policy.
+ */
++/** Accept fully-qualified execution-world paths without depending on the harness host OS. */
++function isMediaStreamAbsolutePath(path) {
++	if (path.startsWith("/")) return true;
++	if (/^[A-Za-z]:[\\/]/.test(path)) return true;
++	if (/^\\\\\?\\/.test(path)) return /^\\\\\?\\(?:[A-Za-z]:\\|UNC\\[^\\]+\\[^\\]+(?:\\|$))/i.test(path);
++	return /^\\\\(?![.?](?:[\\/]|$))[^\\/]+[\\/][^\\/]+(?:[\\/]|$)/.test(path);
++}
++/** Stream authorized media in bounded chunks; all identity and policy checks stay in ctx.fs. */
++async function serveMediaStream(request, fs) {
++	const fail = (status, text, headers = {}) => new Response(request.method === "HEAD" ? null : text, {
++		status,
++		headers: { ...BASE_HEADERS, ...headers }
++	});
++	const path = new URL(request.url).searchParams.get("path");
++	if (!path || path.includes("\0") || !isMediaStreamAbsolutePath(path)) return fail(400, "absolute path required");
++	try {
++		if (request.signal.aborted) return fail(499, "FS_ABORTED");
++		const target = await fs.resolve(path, { signal: request.signal });
++		if (request.signal.aborted) return fail(499, "FS_ABORTED");
++		const info = await fs.stat(target, request.signal);
++		if (request.signal.aborted) return fail(499, "FS_ABORTED");
++		if (info === void 0) return fail(404, "not found");
++		if (info.type !== "file") return fail(403, "not a regular file");
++		const size = info.size;
++		if (!Number.isSafeInteger(size) || size < 0) return fail(500, "invalid file size");
++		const range = request.headers.get("range");
++		let start = 0;
++		let end = size - 1;
++		if (range !== null) {
++			const match = /^bytes=(\d*)-(\d*)$/i.exec(range);
++			const invalid = () => fail(416, "invalid range", { "Accept-Ranges": "bytes", "Content-Range": `bytes */${size}` });
++			if (!match || match[1] === "" && match[2] === "") return invalid();
++			if (match[1] === "") {
++				const suffix = Number(match[2]);
++				if (!Number.isSafeInteger(suffix) || suffix < 1 || size === 0) return invalid();
++				start = Math.max(0, size - suffix);
++			} else {
++				start = Number(match[1]);
++				if (!Number.isSafeInteger(start) || start >= size) return invalid();
++				if (match[2] !== "") {
++					const requestedEnd = Number(match[2]);
++					if (!Number.isSafeInteger(requestedEnd) || requestedEnd < start) return invalid();
++					end = Math.min(requestedEnd, size - 1);
++				}
++			}
++		}
++		const headers = {
++			...BASE_HEADERS,
++			"Content-Type": mime.lookup(target.displayPath) || "application/octet-stream",
++			"Accept-Ranges": "bytes",
++			"Content-Length": String(end - start + 1),
++			...(range !== null ? { "Content-Range": `bytes ${start}-${end}/${size}` } : {})
++		};
++		if (request.method === "HEAD" || size === 0) return new Response(null, { status: range !== null ? 206 : 200, headers });
++		let offset = start;
++		let finished = false;
++		let bodyController;
++		const readAbort = new AbortController();
++		const cleanup = () => request.signal.removeEventListener("abort", abort);
++		const abort = () => {
++			if (finished) return;
++			finished = true;
++			const reason = request.signal.reason ?? new Error("media request aborted");
++			readAbort.abort(reason);
++			cleanup();
++			bodyController.error(reason);
++		};
++		const stream = new ReadableStream({
++			start(controller) {
++				bodyController = controller;
++				request.signal.addEventListener("abort", abort, { once: true });
++				if (request.signal.aborted) abort();
++			},
++			async pull(controller) {
++				if (finished) return;
++				try {
++					const length = Math.min(1024 * 1024, end - offset + 1);
++					const bytes = await fs.readByteRange(target, { offset, length }, readAbort.signal);
++					if (finished) return;
++					if (!(bytes instanceof Uint8Array) || bytes.byteLength !== length) throw new Error("media changed during read");
++					controller.enqueue(bytes);
++					offset += length;
++					if (offset > end) {
++						finished = true;
++						cleanup();
++						controller.close();
++					}
++				} catch (error) {
++					if (finished) return;
++					finished = true;
++					cleanup();
++					readAbort.abort(error);
++					controller.error(error);
++				}
++			},
++			cancel(reason) {
++				if (finished) return;
++				finished = true;
++				cleanup();
++				readAbort.abort(reason);
++			}
++		}, { highWaterMark: 0 });
++		return new Response(stream, { status: range !== null ? 206 : 200, headers });
++	} catch (error) {
++		if (request.signal.aborted) return fail(499, "FS_ABORTED");
++		if (error?.code === "EACCES" || error?.code === "EPERM") return fail(403, error.code);
++		if (!(error instanceof FsError)) throw error;
++		return fail({
++			FS_NOT_FOUND: 404,
++			FS_NOT_REGULAR_FILE: 403,
++			FS_PERMISSION_DENIED: 403,
++			FS_SANDBOX_DENIED: 403,
++			FS_TOO_LARGE: 413,
++			FS_ABORTED: 499
++		}[error.code] ?? 500, error.code);
++	}
++}
+ const SessionMediaReferences = {
+ 	inject: [
+ 		"connection",
+@@ -2586,6 +2703,12 @@
+ 			requestBody: "buffered",
+ 			fetch: (request) => serveFile(request, ctx.fs, maxBytes)
+ 		}), "session-controller: /api/file");
++		ctx.effect(() => ctx.connection.fetch.register({
++			path: "/api/file-stream",
++			methods: ["GET", "HEAD"],
++			requestBody: "buffered",
++			fetch: (request) => serveMediaStream(request, ctx.fs)
++		}), "session-controller: /api/file-stream");
+ 	}
+ };
+ const FILE_HOST_PATH = "/api/session/fileHostPath";
