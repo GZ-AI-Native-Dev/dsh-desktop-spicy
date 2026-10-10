@@ -83,6 +83,11 @@ jobs:
       - name: Verify authenticated media streaming and Windows paths
         run: node --test test-media-stream.cjs
 
+      - name: Verify Windows profile backup links, guards and atomic rollback
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./test-backup.ps1
+
       - name: Verify document and preview compatibility
         run: node test-preview.cjs
 

@@ -20,7 +20,7 @@
 - Windows PowerShell 5.1+ 或 PowerShell 7+，并安装 **Node.js 22+**；`node` 在 PATH，或使用 `-NodePath 'C:\path\node.exe'`。
 - 默认安装位置：`C:\Program Files\DSH Desktop`。替换 Program Files 下的 ASAR 需要以管理员身份打开 PowerShell。
 - 先从应用菜单正常退出 DSH Desktop；脚本按目标 InstallDir 内的精确 `ExecutablePath` 检查运行进程，既不 kill 也不自动启动应用。
-- 备份空间应容纳原 ASAR、候选 ASAR、EXE 备份以及 `.dsh` 和 `%APPDATA%\dsh-desktop` 的完整快照。profile 目录含 junction / symlink 时，脚本先停止，不跟随链接复制外部目录。
+- 备份空间应容纳原 ASAR、候选 ASAR、EXE 备份以及 `.dsh` 和 `%APPDATA%\dsh-desktop` 的普通文件/目录快照。内部 junction / symlink 只保存类型、目标和属性元数据，绝不跟随链接读取外部目录；两个 profile 根目录本身为链接，或链接元数据读取失败时，脚本停止。
 - 下载本目录所有文件（包括 `manifest.json`、三个 payload `.js`、`patch-asar.cjs` 和两个 PowerShell 脚本）。只拿 `.patch` 文件不足以安装。
 
 ## Prepare：只备份、构建、校验
@@ -38,7 +38,7 @@
 - `original-app.asar`、`baseline-exe.bin`：原件只读副本；EXE 备份仅供独立验证，不会替换程序 EXE。
 - `candidate-app.asar`：三个目标 JS 的候选 ASAR；原 payload bytes 保留，重新计算变更项 integrity / metadata。
 - `payload/`：自包含的 manifest、JS、patch 工具；以及备份根目录中的 `rollback-windows.ps1`。
-- `profiles/dot-dsh`、`profiles/dsh-desktop`：存在的用户目录完整备份；脚本对比内容摘要，不在报告中输出凭证或配置内容。
+- `profiles/dot-dsh`、`profiles/dsh-desktop`：存在的用户目录普通文件和空目录备份；相邻的 `<name>.links.json` 保存 junction / symlink 相对路径、类型、目标和属性。脚本比较 source-before / source-after / 普通备份加链接元数据三个摘要，报告只记文件/目录/链接数量与 hash，不输出链接详情、凭证或配置内容。链接元数据留待人工重建，脚本不会访问或复制 target。
 - `prepare.json` / `latest-verify.json` / `candidate-app.asar.verification.json`：精确 hash、build / verify 命令参数、原样 stdout/stderr 和退出码。
 
 所有 patch 工具调用都传 `--exe`。遇到未来版本的 EXE、不匹配基线，或开启 embedded ASAR integrity 的发行版，流程停止；不绕过 integrity、不改 fuse。
@@ -78,16 +78,17 @@
   -BackupDir 'C:\DSH-Backups\windows-0.11.1-preview' -Execute
 ```
 
-回滚只恢复 ASAR，不自动覆盖 profile 备份，不丢弃新会话。完整用户目录备份仅供确有需要时单独评估恢复。已安装原件时执行回滚为幂等 `already-restored`；不匹配基线或候选的 ASAR 会停止，避免覆盖另一次官方更新。
+回滚只恢复 ASAR，不自动覆盖 profile 备份，不丢弃新会话。用户目录文件备份和链接元数据仅供确有需要时单独评估恢复；链接需根据 `<name>.links.json` 人工重建，脚本不自动重建或访问 target。已安装原件时执行回滚为幂等 `already-restored`；不匹配基线或候选的 ASAR 会停止，避免覆盖另一次官方更新。
 
 ## 源码与 CI
 
-源码修改先形成候选快照，再在远端隔离环境执行测试；本机不运行服务、模型或耗时验收。轻量和 ASAR 测试：
+源码修改先形成候选快照，服务、模型和耗时测试在远端隔离环境执行；Windows 本机安装后进行应用健康及媒体基本验收。CI 的前端、媒体流、ASAR 与 Windows 备份 fixture 测试：
 
 ```sh
 node test-preview.cjs
 node test-media-stream.cjs
 node test-asar.cjs
+pwsh -NoProfile -File test-backup.ps1
 ```
 
 检查 manifest / payload hash 后，用真实基线可单独构建与验证（两条命令都必须传 `--exe`）：

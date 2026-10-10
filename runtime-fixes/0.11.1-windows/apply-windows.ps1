@@ -21,6 +21,7 @@ function Assert-AppClosed([string]$Root) {
     if ($running.Count -gt 0) { throw 'Close DSH Desktop normally before preparing or applying this overlay. No process was stopped.' }
 }
 function Assert-BackupLocation([string]$Backup, [string[]]$ExcludedRoots) {
+    $Backup = (Get-FullPath $Backup).TrimEnd('\', '/')
     foreach ($root in $ExcludedRoots) {
         $full = (Get-FullPath $root).TrimEnd('\', '/')
         if ($Backup.Equals($full, [StringComparison]::OrdinalIgnoreCase) -or $Backup.StartsWith($full + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase)) {
@@ -28,58 +29,110 @@ function Assert-BackupLocation([string]$Backup, [string[]]$ExcludedRoots) {
         }
     }
 }
-function Get-TreeFiles([string]$Root) {
+function Get-TreeSnapshot([string]$Root) {
+    $Root = (Get-FullPath $Root).TrimEnd('\', '/')
+    $rootItem = Get-Item -LiteralPath $Root -Force
+    if (!$rootItem.PSIsContainer -or ($rootItem.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) { throw 'Profile root must be an ordinary directory, not a reparse point.' }
     $queue = [Collections.Generic.Queue[string]]::new()
     $queue.Enqueue($Root)
     $files = [Collections.Generic.List[IO.FileInfo]]::new()
+    $directories = [Collections.Generic.List[string]]::new()
+    $links = [Collections.Generic.List[object]]::new()
     while ($queue.Count -gt 0) {
         $directory = $queue.Dequeue()
+        if (((Get-Item -LiteralPath $directory -Force).Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) { throw 'Profile changed during snapshot: queued directory became a reparse point.' }
         foreach ($entry in @(Get-ChildItem -LiteralPath $directory -Force)) {
-            if (($entry.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) { throw 'A profile contains a reparse point. Backup stopped without following it; select a complete ordinary-file backup first.' }
-            if ($entry.PSIsContainer) { $queue.Enqueue($entry.FullName) }
+            $relative = $entry.FullName.Substring($Root.Length + 1).Replace('\', '/')
+            if (($entry.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+                $typeProperty = $entry.PSObject.Properties['LinkType']
+                $targetProperty = $entry.PSObject.Properties['Target']
+                if ($null -eq $typeProperty -or $null -eq $targetProperty -or [string]::IsNullOrWhiteSpace([string]$typeProperty.Value) -or @($targetProperty.Value).Count -eq 0) { throw 'Reparse-point type or target metadata is unavailable. Installation has not been replaced.' }
+                $links.Add([ordered]@{
+                    relativePath = $relative; linkType = [string]$typeProperty.Value
+                    targets = @($targetProperty.Value | ForEach-Object { [string]$_ })
+                    isDirectory = [bool]$entry.PSIsContainer; attributes = [int]$entry.Attributes
+                })
+                continue # Never enumerate or read the link's target.
+            }
+            if ($entry.PSIsContainer) { $directories.Add($relative); $queue.Enqueue($entry.FullName) }
             else { $files.Add($entry) }
         }
     }
-    return @($files | Sort-Object FullName)
+    return [pscustomobject]@{
+        files = @($files.ToArray() | Sort-Object FullName)
+        directories = @($directories.ToArray() | Sort-Object)
+        reparsePoints = @($links.ToArray() | Sort-Object { $_.relativePath })
+    }
 }
-function Get-TreeDigest([string]$Root) {
-    $sha = [Security.Cryptography.SHA256]::Create()
-    $count = 0
+function Get-TreeFiles([string]$Root) { return @((Get-TreeSnapshot $Root).files) }
+function Get-TreeDigest([string]$Root, $Snapshot = $null) {
+    if ($null -eq $Snapshot) { $Snapshot = Get-TreeSnapshot $Root }
+    $Root = (Get-FullPath $Root).TrimEnd('\', '/')
+    $rows = [Collections.Generic.List[object]]::new()
     [long]$bytes = 0
+    foreach ($directory in $Snapshot.directories) {
+        $rows.Add([pscustomobject]@{ key = [string]$directory; line = ('D' + [char]0 + $directory + "`n") })
+    }
+    foreach ($file in $Snapshot.files) {
+        $relative = $file.FullName.Substring($Root.Length + 1).Replace('\', '/')
+        $rows.Add([pscustomobject]@{ key = $relative; line = ('F' + [char]0 + $relative + [char]0 + (Get-Sha256 $file.FullName) + "`n") })
+        $bytes += $file.Length
+    }
+    foreach ($link in $Snapshot.reparsePoints) {
+        $description = [ordered]@{ relativePath = [string]$link.relativePath; linkType = [string]$link.linkType; targets = @($link.targets); isDirectory = [bool]$link.isDirectory; attributes = [int]$link.attributes }
+        $json = ConvertTo-Json -InputObject $description -Depth 10 -Compress
+        $rows.Add([pscustomobject]@{ key = [string]$link.relativePath; line = ('L' + [char]0 + $json + "`n") })
+    }
+    $sha = [Security.Cryptography.SHA256]::Create()
     try {
-        foreach ($file in @(Get-TreeFiles $Root)) {
-            $relative = $file.FullName.Substring($Root.TrimEnd('\', '/').Length + 1).Replace('\', '/')
-            $row = [Text.Encoding]::UTF8.GetBytes($relative + [char]0 + (Get-Sha256 $file.FullName) + "`n")
+        foreach ($entry in @($rows.ToArray() | Sort-Object key)) {
+            $row = [Text.Encoding]::UTF8.GetBytes($entry.line)
             [void]$sha.TransformBlock($row, 0, $row.Length, $row, 0)
-            $count++; $bytes += $file.Length
         }
         [void]$sha.TransformFinalBlock([byte[]]@(), 0, 0)
-        return [ordered]@{ sha256 = ([BitConverter]::ToString($sha.Hash)).Replace('-', '').ToLowerInvariant(); files = $count; bytes = $bytes }
+        return [ordered]@{
+            sha256 = ([BitConverter]::ToString($sha.Hash)).Replace('-', '').ToLowerInvariant()
+            files = @($Snapshot.files).Count; bytes = $bytes
+            directories = @($Snapshot.directories).Count; reparsePointCount = @($Snapshot.reparsePoints).Count
+        }
     } finally { $sha.Dispose() }
 }
-function Copy-Profile([string]$Source, [string]$Destination) {
-    $files = @(Get-TreeFiles $Source) # Reject traversal through reparse points before any copy.
+function Copy-Profile([string]$Source, [string]$Destination, [string]$MetadataPath) {
+    $Source = (Get-FullPath $Source).TrimEnd('\', '/')
+    $Destination = (Get-FullPath $Destination).TrimEnd('\', '/')
+    if ([string]::IsNullOrWhiteSpace($MetadataPath)) { $MetadataPath = $Destination + '.links.json' }
+    $MetadataPath = Get-FullPath $MetadataPath
+    Assert-BackupLocation $Destination @($Source)
+    Assert-BackupLocation $MetadataPath @($Source, $Destination)
+    if (Test-Path -LiteralPath $Destination) { throw 'Profile snapshot destination must be new.' }
+    if (Test-Path -LiteralPath $MetadataPath) { throw 'Link metadata destination must be new.' }
+    $snapshot = Get-TreeSnapshot $Source
+    $before = Get-TreeDigest $Source $snapshot
     [void][IO.Directory]::CreateDirectory($Destination)
-    # Keep empty directories, but never enumerate through a symbolic link or junction.
-    $queue = [Collections.Generic.Queue[string]]::new(); $queue.Enqueue($Source)
-    while ($queue.Count -gt 0) {
-        $directory = $queue.Dequeue()
-        foreach ($entry in @(Get-ChildItem -LiteralPath $directory -Force -Directory)) {
-            if (($entry.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) { throw 'Profile changed during backup: reparse point detected.' }
-            $relative = $entry.FullName.Substring($Source.TrimEnd('\', '/').Length + 1)
-            [void][IO.Directory]::CreateDirectory((Join-Path $Destination $relative))
-            $queue.Enqueue($entry.FullName)
-        }
+    foreach ($relative in $snapshot.directories) {
+        [void][IO.Directory]::CreateDirectory((Join-Path $Destination $relative))
     }
-    foreach ($file in $files) {
-        $relative = $file.FullName.Substring($Source.TrimEnd('\', '/').Length + 1)
+    foreach ($file in $snapshot.files) {
+        if (((Get-Item -LiteralPath $file.FullName -Force).Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) { throw 'Profile changed during backup: ordinary file became a link.' }
+        $relative = $file.FullName.Substring($Source.Length + 1)
         $target = Join-Path $Destination $relative
         [void][IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($target))
         [IO.File]::Copy($file.FullName, $target, $false)
     }
-    $before = Get-TreeDigest $Source
-    $after = Get-TreeDigest $Destination
-    if ($before.sha256 -ne $after.sha256 -or $before.files -ne $after.files -or $before.bytes -ne $after.bytes) { throw 'Profile backup verification failed. Installation has not been replaced.' }
+    $metadata = [ordered]@{ format = 'dsh-profile-links-v1'; reparsePoints = @($snapshot.reparsePoints) }
+    Write-Json $MetadataPath $metadata
+    $saved = Get-Content -LiteralPath $MetadataPath -Raw | ConvertFrom-Json
+    if ($saved.format -ne 'dsh-profile-links-v1') { throw 'Link metadata readback failed.' }
+    $destinationSnapshot = Get-TreeSnapshot $Destination
+    if (@($destinationSnapshot.reparsePoints).Count -ne 0) { throw 'Snapshot destination unexpectedly contains a link.' }
+    $restoredDescription = [pscustomobject]@{
+        files = @($destinationSnapshot.files); directories = @($destinationSnapshot.directories)
+        reparsePoints = @($saved.reparsePoints)
+    }
+    $sourceAfter = Get-TreeDigest $Source
+    $after = Get-TreeDigest $Destination $restoredDescription
+    if ($before.sha256 -ne $sourceAfter.sha256 -or $before.sha256 -ne $after.sha256 -or $before.files -ne $after.files -or $before.bytes -ne $after.bytes -or $before.directories -ne $after.directories -or $before.reparsePointCount -ne $after.reparsePointCount) { throw 'Profile snapshot verification failed. Installation has not been replaced.' }
+    $after.metadataSha256 = Get-Sha256 $MetadataPath
     return $after
 }
 function Invoke-PatchTool([string]$Node, [string]$Tool, [string[]]$Arguments) {
@@ -153,8 +206,9 @@ if (!(Test-Path -LiteralPath $recordPath -PathType Leaf)) {
         if (Test-Path -LiteralPath $profile.path -PathType Container) {
             if ((Get-Item -LiteralPath $profile.path -Force).Attributes -band [IO.FileAttributes]::ReparsePoint) { throw 'A source profile root is a reparse point. Installation has not been replaced.' }
             $destination = Join-Path (Join-Path $BackupDir 'profiles') $profile.name
-            $digest = Copy-Profile $profile.path $destination
-            $profiles += [ordered]@{ name = $profile.name; present = $true; sha256 = $digest.sha256; files = $digest.files; bytes = $digest.bytes }
+            $metadataPath = $destination + '.links.json'
+            $digest = Copy-Profile $profile.path $destination $metadataPath
+            $profiles += [ordered]@{ name = $profile.name; present = $true; sha256 = $digest.sha256; files = $digest.files; bytes = $digest.bytes; directories = $digest.directories; reparsePointCount = $digest.reparsePointCount; metadataSha256 = $digest.metadataSha256 }
         } else { $profiles += [ordered]@{ name = $profile.name; present = $false } }
     }
     $build = Invoke-PatchTool $node $tool @('build', '--asar', $original, '--output', $candidate, '--dir', $payload, '--exe', $backupExe)
